@@ -30,6 +30,17 @@ test("redacts high-entropy blobs and emails, leaves ordinary prose", () => {
   assert.ok(text.includes("user input handler"));
 });
 
+test("redacts single-case/long tokens and alphabet-only bearer tokens", () => {
+  const lower = "qwertyuiopasdfghjklzxcvbnmqwertyuiopas";
+  const upper = "QWERTYUIOPASDFGHJKLZXCVBNMQWERTYUIOPAS";
+  const bearerToken = "abcdefghijklmnopqrstuvwx";
+  const { text, counts } = redact(`${lower} ${upper}\nAuthorization: Bearer ${bearerToken}`);
+  assert.ok(!text.includes(lower), "leaked all-lowercase token");
+  assert.ok(!text.includes(upper), "leaked all-uppercase token");
+  assert.ok(!text.includes(bearerToken), "leaked alphabet-only bearer token");
+  assert.ok((counts["high_entropy"] ?? 0) >= 2 && (counts["auth_header"] ?? 0) === 1);
+});
+
 test("is idempotent", () => {
   const once = redact(`token = "abcdefghijk123"`).text;
   assert.equal(redact(once).text, once);

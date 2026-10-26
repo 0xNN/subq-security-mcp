@@ -63,8 +63,7 @@ const RULES: Rule[] = [
   {
     name: "auth_header",
     pattern: /\b(Bearer|Basic)(\s{1,16})([A-Za-z0-9._~+/=-]{16,})/g,
-    replace: (_m, scheme, space, token) =>
-      /\d/.test(token) ? `${scheme}${space}${placeholder("auth_header")}` : undefined,
+    replace: (_m, scheme, space) => `${scheme}${space}${placeholder("auth_header")}`,
   },
   {
     name: "url_credentials",
@@ -89,10 +88,11 @@ const RULES: Rule[] = [
     pattern: /[A-Za-z0-9+/_=-]{32,}/g,
     replace: (token) => {
       if (token.startsWith("[REDACTED")) return undefined;
-      const hex = /^[0-9a-f]{32,}$/i.test(token);
-      const mixed = /[a-z]/.test(token) && /[A-Z]/.test(token) && /\d/.test(token);
       const entropy = shannonEntropy(token);
-      if ((hex && entropy >= 3) || (mixed && entropy >= 4)) return placeholder("high_entropy");
+      // Redact any sufficiently high-entropy run regardless of case composition so
+      // single-case/long secrets are not forwarded verbatim. Hex needs less diversity.
+      if (entropy >= 4) return placeholder("high_entropy");
+      if (/^[0-9a-f]{32,}$/i.test(token) && entropy >= 3) return placeholder("high_entropy");
       return undefined;
     },
   },
