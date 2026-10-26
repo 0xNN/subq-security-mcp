@@ -1,0 +1,28 @@
+{
+  "name": "subq-security-mcp",
+  "version": "2.0.0",
+  "description": "MCP gatekeeper: reads findings.json from the Cloudflare security-audit skill and gates a PR using SubQ decision probabilities.",
+  "main": "dist/index.js",
+  "bin": {
+    "subq-security-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "tsc && node --test --test-timeout=30000 \"dist/**/*.test.js\""
+  },
+  "keywords": ["mcp", "security", "subq"],
+  "license": "ISC",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
