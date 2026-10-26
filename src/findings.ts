@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -107,9 +107,17 @@ async function runSkillValidator(findingsPath: string): Promise<string | undefin
 }
 
 export async function loadFindings(findingsPath: string): Promise<LoadedFindings> {
-  const stat = statSync(findingsPath);
-  if (!stat.isFile()) throw new Error("findings_path harus berupa file biasa.");
-  const size = stat.size;
+  // Read first, then validate the byte length of the content actually consumed. Checking a stat()
+  // before the read and trusting it afterwards is a TOCTOU window: the file can be swapped between
+  // the check and the read. Encoding to a Buffer gives the authoritative size of what we parse.
+  let rawText: string;
+  try {
+    rawText = readFileSync(findingsPath, "utf8");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    throw new Error(code === "ENOENT" ? "findings.json tidak ditemukan." : "findings.json tidak dapat dibaca.");
+  }
+  const size = Buffer.byteLength(rawText, "utf8");
   if (size > MAX_FILE_BYTES) throw new Error(`findings.json terlalu besar (${size} byte, maks ${MAX_FILE_BYTES}).`);
 
   const warnings: string[] = [];
@@ -118,7 +126,7 @@ export async function loadFindings(findingsPath: string): Promise<LoadedFindings
 
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(findingsPath, "utf8"));
+    raw = JSON.parse(rawText);
   } catch {
     throw new Error("findings.json bukan JSON yang valid.");
   }

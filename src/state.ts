@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { NoulQuestion } from "./subq.js";
 import type { Finding } from "./findings.js";
@@ -45,12 +45,19 @@ function uniqueLocations(finding: Finding): Array<{ file: string; line: number }
  */
 function readSnippet(repoRoot: string, file: string, line: number): string | undefined {
   if (!isRepoRelative(file) || hasAliasSyntax(file) || isSensitivePath(file) || !isAllowedSourceFile(file)) return undefined;
+  let fd: number | undefined;
   try {
     const real = resolveInside(repoRoot, file);
     if (isSensitivePath(real) || !isAllowedSourceFile(real)) return undefined;
-    const stat = statSync(real);
+    // Open the resolved path once and verify via fstat on that descriptor, closing the TOCTOU window
+    // between a stat() + readFileSync() pair where the file could be swapped in between. On POSIX,
+    // O_NOFOLLOW also refuses to follow a final symlink; Windows lacks it, so we still rely on the
+    // canonicalized real path plus revalidating the open descriptor.
+    const flags = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
+    fd = openSync(real, flags);
+    const stat = fstatSync(fd);
     if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return undefined;
-    const content = readFileSync(real, "utf8");
+    const content = readFileSync(fd, "utf8");
     if (content.includes("\0")) return undefined;
     const lines = content.split(/\r?\n/);
     const start = Math.max(1, line - CONTEXT_LINES);
@@ -68,6 +75,8 @@ function readSnippet(repoRoot: string, file: string, line: number): string | und
     return rows.join("\n");
   } catch {
     return undefined;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 

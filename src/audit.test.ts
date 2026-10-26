@@ -37,6 +37,9 @@ function fixture(): { root: string; findingsPath: string } {
     findingsPath,
     JSON.stringify([finding("fp-app", "src/app.ts", "needs_validation"), finding("fp-env", ".env", "needs_validation"), finding("fp-rej", "src/app.ts", "rejected")]),
   );
+  // The skill writes run-metadata.json beside findings.json; a completed audit keeps these tests focused on
+  // redaction/egress behavior rather than the missing-metadata escalation (which gate.test.ts covers).
+  writeFileSync(path.join(root, "run-metadata.json"), JSON.stringify({ run_status: "complete" }));
   return { root, findingsPath };
 }
 

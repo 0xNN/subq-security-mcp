@@ -85,12 +85,14 @@ export async function runAudit({ findingsPath, repoRoot, config, thresholds, sig
   if (audit === "incomplete") {
     action = maxAction(action, "MANUAL_REVIEW");
     reasons.push("run-metadata.json menyatakan audit belum selesai (run_status bukan 'complete'); hasil temuan belum lengkap.");
-  } else if (active === 0 && audit !== "complete") {
+  } else if (audit !== "complete") {
+    // Missing or unreadable metadata means we cannot tell a clean audit from one that never ran,
+    // so we never let it lower the gate regardless of how many findings are active.
     action = maxAction(action, "MANUAL_REVIEW");
     reasons.push(
       audit === "missing"
-        ? "Tidak ada temuan aktif, tetapi run-metadata.json tidak ditemukan di folder findings.json; tidak bisa dibedakan antara 'audit bersih' dan 'audit tidak pernah berjalan' atau file kedaluwarsa."
-        : "Tidak ada temuan aktif, tetapi run-metadata.json tidak dapat dibaca atau tidak valid; status audit tidak dapat dipastikan.",
+        ? "run-metadata.json tidak ditemukan di folder findings.json; tidak bisa dibedakan antara 'audit bersih' dan 'audit tidak pernah berjalan' atau file kedaluwarsa."
+        : "run-metadata.json tidak dapat dibaca atau tidak valid; status audit tidak dapat dipastikan.",
     );
   }
   return { action, decisions, counts, subq: { ok, failed, skipped }, redactions, withheld, warnings, audit, reasons };

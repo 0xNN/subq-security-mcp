@@ -102,9 +102,11 @@ test("an incomplete audit forces MANUAL_REVIEW even when findings are minor or a
   assert.ok(minor.reasons.some((r) => r.includes("belum selesai")));
 });
 
-test("active findings keep their own policy; missing metadata only matters for empty results", async () => {
+test("missing metadata forces MANUAL_REVIEW even with active findings; a completed audit keeps the policy", async () => {
   mockSubq(0.1);
-  assert.equal((await run([confirmed("c1", "low")], "missing")).action, "APPROVE");
+  const missing = await run([confirmed("c1", "low")], "missing");
+  assert.equal(missing.action, "MANUAL_REVIEW");
+  assert.ok(missing.reasons.some((r) => r.includes("tidak ditemukan")));
   assert.equal((await run([confirmed("c1", "low")], "complete")).action, "APPROVE");
 });
 
